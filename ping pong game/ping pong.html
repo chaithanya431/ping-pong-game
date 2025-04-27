@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ping Pong Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            background-color: #000;
+            border: 4px solid #444;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        #game-canvas {
+            background-color: #000;
+        }
+        
+        #score-display {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        }
+        
+        .player-score {
+            margin: 0 30px;
+        }
+        
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-image: (https://cdn.mos.cms.futurecdn.net/fKAgmJ2GPMmJSr9kC7EkTV.jpg);
+            color: white;
+            z-index: 10;
+        }
+        
+        #game-over-screen {
+            display: none;
+        }
+        
+        h1 {
+            font-size: 48px;
+            margin-bottom: 30px;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        
+        button {
+            padding: 12px 30px;
+            font-size: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+            transform: scale(1.05);
+        }
+        
+        #instructions {
+            margin-top: 30px;
+            text-align: center;
+            line-height: 1.6;
+        }
+        
+        .center-line {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 2px;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.2);
+            background-image: (https://cdn.mos.cms.futurecdn.net/fKAgmJ2GPMmJSr9kC7EkTV.jpg);
+
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div class="center-line"></div>
+        <canvas id="game-canvas" width="800" height="500"></canvas>
+        
+        <div id="score-display">
+            <div class="player-score" id="player1-score">0</div>
+            <div class="player-score" id="player2-score">0</div>
+        </div>
+        
+        <div id="start-screen">
+            <h1>PING PONG</h1>
+            <button id="start-btn">Start Game</button>
+            <button id="vs-computer-btn">VS Computer</button>
+            <div id="instructions">
+                <p>Player 1: W (up) and S (down)</p>
+                <p>Player 2: Arrow Up and Arrow Down</p>
+                <p>First to 5 points wins!</p>
+            </div>
+        </div>
+        
+        <div id="game-over-screen">
+            <h1 id="winner-text">Player 1 Wins!</h1>
+            <button id="play-again-btn">Play Again</button>
+            <button id="main-menu-btn">Main Menu</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Game elements
+            const canvas = document.getElementById('game-canvas');
+            const ctx = canvas.getContext('2d');
+            const player1ScoreElement = document.getElementById('player1-score');
+            const player2ScoreElement = document.getElementById('player2-score');
+            const startScreen = document.getElementById('start-screen');
+            const gameOverScreen = document.getElementById('game-over-screen');
+            const winnerText = document.getElementById('winner-text');
+            const startBtn = document.getElementById('start-btn');
+            const vsComputerBtn = document.getElementById('vs-computer-btn');
+            const playAgainBtn = document.getElementById('play-again-btn');
+            const mainMenuBtn = document.getElementById('main-menu-btn');
+            
+            // Game variables
+            let gameRunning = false;
+            let vsComputer = false;
+            let player1Score = 0;
+            let player2Score = 0;
+            const winningScore = 5;
+            
+            // Game objects
+            const ball = {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                radius: 10,
+                speed: 5,
+                dx: 4,
+                dy: 4,
+                reset: function() {
+                    this.x = canvas.width / 2;
+                    this.y = canvas.height / 2;
+                    this.dx = this.speed * (Math.random() > 0.5 ? 1 : -1);
+                    this.dy = this.speed * (Math.random() > 0.5 ? 1 : -1);
+                }
+            };
+            
+            const paddleHeight = 100;
+            const paddleWidth = 15;
+            
+            const player1 = {
+                x: 20,
+                y: canvas.height / 2 - paddleHeight / 2,
+                width: paddleWidth,
+                height: paddleHeight,
+                speed: 8,
+                dy: 0,
+                upPressed: false,
+                downPressed: false,
+                score: 0
+            };
+            
+            const player2 = {
+                x: canvas.width - 20 - paddleWidth,
+                y: canvas.height / 2 - paddleHeight / 2,
+                width: paddleWidth,
+                height: paddleHeight,
+                speed: 8,
+                dy: 0,
+                upPressed: false,
+                downPressed: false,
+                score: 0
+            };
+            
+            // Event listeners
+            startBtn.addEventListener('click', startTwoPlayerGame);
+            vsComputerBtn.addEventListener('click', startComputerGame);
+            playAgainBtn.addEventListener('click', playAgain);
+            mainMenuBtn.addEventListener('click', showMainMenu);
+            
+            document.addEventListener('keydown', keyDownHandler);
+            document.addEventListener('keyup', keyUpHandler);
+            
+            // Key handlers
+            function keyDownHandler(e) {
+                if (!gameRunning) return;
+                
+                // Player 1 controls
+                if (e.key === 'w' || e.key === 'W') {
+                    player1.upPressed = true;
+                } else if (e.key === 's' || e.key === 'S') {
+                    player1.downPressed = true;
+                }
+                
+                // Player 2 controls (only if not vs computer)
+                if (!vsComputer) {
+                    if (e.key === 'ArrowUp') {
+                        player2.upPressed = true;
+                    } else if (e.key === 'ArrowDown') {
+                        player2.downPressed = true;
+                    }
+                }
+            }
+            
+            function keyUpHandler(e) {
+                // Player 1 controls
+                if (e.key === 'w' || e.key === 'W') {
+                    player1.upPressed = false;
+                } else if (e.key === 's' || e.key === 'S') {
+                    player1.downPressed = false;
+                }
+                
+                // Player 2 controls
+                if (e.key === 'ArrowUp') {
+                    player2.upPressed = false;
+                } else if (e.key === 'ArrowDown') {
+                    player2.downPressed = false;
+                }
+            }
+            
+            // Game control functions
+            function startTwoPlayerGame() {
+                vsComputer = false;
+                startGame();
+            }
+            
+            function startComputerGame() {
+                vsComputer = true;
+                startGame();
+            }
+            
+            function startGame() {
+                gameRunning = true;
+                startScreen.style.display = 'none';
+                gameOverScreen.style.display = 'none';
+                resetGame();
+                requestAnimationFrame(gameLoop);
+            }
+            
+            function playAgain() {
+                gameOverScreen.style.display = 'none';
+                resetGame();
+                requestAnimationFrame(gameLoop);
+            }
+            
+            function showMainMenu() {
+                gameOverScreen.style.display = 'none';
+                startScreen.style.display = 'flex';
+            }
+            
+            function resetGame() {
+                player1.score = 0;
+                player2.score = 0;
+                player1ScoreElement.textContent = '0';
+                player2ScoreElement.textContent = '0';
+                ball.reset();
+                
+                // Reset paddle positions
+                player1.y = canvas.height / 2 - player1.height / 2;
+                player2.y = canvas.height / 2 - player2.height / 2;
+            }
+            
+            function endGame(winner) {
+                gameRunning = false;
+                winnerText.textContent = `${winner} Wins!`;
+                gameOverScreen.style.display = 'flex';
+            }
+            
+            // Game logic
+            function update() {
+                // Update player 1 position
+                if (player1.upPressed) {
+                    player1.dy = -player1.speed;
+                } else if (player1.downPressed) {
+                    player1.dy = player1.speed;
+                } else {
+                    player1.dy = 0;
+                }
+                
+                // Update player 2 position (either by player or AI)
+                if (!vsComputer) {
+                    if (player2.upPressed) {
+                        player2.dy = -player2.speed;
+                    } else if (player2.downPressed) {
+                        player2.dy = player2.speed;
+                    } else {
+                        player2.dy = 0;
+                    }
+                } else {
+                    // Simple AI for computer player
+                    const paddleCenter = player2.y + player2.height / 2;
+                    const ballCenter = ball.y;
+                    
+                    if (paddleCenter < ballCenter - 10) {
+                        player2.dy = player2.speed;
+                    } else if (paddleCenter > ballCenter + 10) {
+                        player2.dy = -player2.speed;
+                    } else {
+                        player2.dy = 0;
+                    }
+                }
+                
+                // Move paddles
+                player1.y += player1.dy;
+                player2.y += player2.dy;
+                
+                // Paddle boundary check
+                if (player1.y < 0) {
+                    player1.y = 0;
+                } else if (player1.y + player1.height > canvas.height) {
+                    player1.y = canvas.height - player1.height;
+                }
+                
+                if (player2.y < 0) {
+                    player2.y = 0;
+                } else if (player2.y + player2.height > canvas.height) {
+                    player2.y = canvas.height - player2.height;
+                }
+                
+                // Move ball
+                ball.x += ball.dx;
+                ball.y += ball.dy;
+                
+                // Wall collision (top/bottom)
+                if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) {
+                    ball.dy = -ball.dy;
+                }
+                
+                // Paddle collision
+                // Player 1 paddle
+                if (
+                    ball.x - ball.radius < player1.x + player1.width &&
+                    ball.y > player1.y &&
+                    ball.y < player1.y + player1.height
+                ) {
+                    const hitPosition = (ball.y - (player1.y + player1.height / 2)) / (player1.height / 2);
+                    const angle = hitPosition * Math.PI / 4; // Max 45 degree angle
+                    
+                    ball.dx = Math.abs(ball.dx) * 1.05; // Increase speed slightly
+                    ball.dy = ball.speed * Math.sin(angle);
+                    ball.x = player1.x + player1.width + ball.radius; // Prevent sticking
+                }
+                
+                // Player 2 paddle
+                if (
+                    ball.x + ball.radius > player2.x &&
+                    ball.y > player2.y &&
+                    ball.y < player2.y + player2.height
+                ) {
+                    const hitPosition = (ball.y - (player2.y + player2.height / 2)) / (player2.height / 2);
+                    const angle = hitPosition * Math.PI / 4; // Max 45 degree angle
+                    
+                    ball.dx = -Math.abs(ball.dx) * 1.05; // Increase speed slightly
+                    ball.dy = ball.speed * Math.sin(angle);
+                    ball.x = player2.x - ball.radius; // Prevent sticking
+                }
+                
+                // Score points
+                if (ball.x - ball.radius < 0) {
+                    player2.score++;
+                    player2ScoreElement.textContent = player2.score;
+                    if (player2.score >= winningScore) {
+                        endGame(vsComputer ? 'Computer' : 'Player 2');
+                    } else {
+                        ball.reset();
+                    }
+                } else if (ball.x + ball.radius > canvas.width) {
+                    player1.score++;
+                    player1ScoreElement.textContent = player1.score;
+                    if (player1.score >= winningScore) {
+                        endGame('Player 1');
+                    } else {
+                        ball.reset();
+                    }
+                }
+            }
+            
+            // Drawing functions
+            function draw() {
+                // Clear canvas
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw center line
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.setLineDash([10, 10]);
+                ctx.beginPath();
+                ctx.moveTo(canvas.width / 2, 0);
+                ctx.lineTo(canvas.width / 2, canvas.height);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Draw ball
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw paddles
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(player1.x, player1.y, player1.width, player1.height);
+                ctx.fillRect(player2.x, player2.y, player2.width, player2.height);
+            }
+            
+            // Game loop
+            function gameLoop() {
+                if (gameRunning) {
+                    update();
+                    draw();
+                    requestAnimationFrame(gameLoop);
+                }
+            }
+            
+            // Initialize game
+            ball.reset();
+        });
+    </script>
+</body>
+</html>
